@@ -3,7 +3,7 @@ import json
 import base64
 import time
 import threading
-
+import database 
 class SensorDataProcessor:
     def __init__(self):
         self.temp = None
@@ -21,24 +21,29 @@ class SensorDataProcessor:
         client.loop_start()
 
     def process_data(self, payload_json):
-    # Make sure this is an uplink message
+        # Make sure this is an uplink message
         if 'uplink_message' in payload_json:
             frm_payload_base64 = payload_json['uplink_message']['frm_payload']
             frm_payload_bytes = base64.b64decode(frm_payload_base64)
         
-        # Decode temperature (2 bytes, big endian)
+            # Decode temperature (2 bytes, big endian)
             temperature_raw = frm_payload_bytes[2:4]
             temperature = (temperature_raw[0] << 8 | temperature_raw[1]) / 10.0
         
-        # Decode humidity (1 byte)
-        humidity_raw = frm_payload_bytes[6]
-        humidity = humidity_raw / 2.0
+            # Decode humidity (1 byte)
+            humidity_raw = frm_payload_bytes[6]
+            humidity = humidity_raw / 2.0
         
-        with self.lock:
-            self.temp = temperature
-            self.hum = humidity
-            print(f"temp: {self.temp} *C")
-            print(f"humidity: {self.hum} %")
+            device_id = payload_json["identifiers"][0]["device_ids"]["device_id"]
+
+            with self.lock:
+                self.temp = temperature
+                self.hum = humidity
+                print(f"temp: {self.temp} *C")
+                print(f"humidity: {self.hum} %")
+
+                # Update the database with new sensor data
+                database.update_sensor_data(device_id, self.temp, self.hum)
 
     def on_connect(self, client, userdata, flags, rc):
         print("Connected with result code " + str(rc))
